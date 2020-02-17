@@ -58,6 +58,7 @@ import org.apache.tomcat.util.res.StringManager;
  * be subclassed to create more sophisticated Manager implementations.
  *
  * @author Craig R. McClanahan
+ * @author Carsten Klein
  */
 public abstract class ManagerBase extends LifecycleMBeanBase implements Manager {
 
@@ -197,6 +198,12 @@ public abstract class ManagerBase extends LifecycleMBeanBase implements Manager 
 
     private boolean notifyAttributeListenerOnUnchangedValue = true;
 
+    /**
+     * Determines whether newly created sessions managed by this manager shall persist (serialize)
+     * authentication information or not. This value is passed to sessions upon creation, so changes
+     * to this property are only reflected by sessions that have been created after such a change.
+     */
+    private boolean persistAuthentication = false;
 
     // ------------------------------------------------------------ Constructors
 
@@ -543,6 +550,29 @@ public abstract class ManagerBase extends LifecycleMBeanBase implements Manager 
                                    Integer.valueOf(this.processExpiresFrequency));
 
     }
+
+    /**
+     * Return whether newly created sessions managed by this manager shall persist authentication
+     * information or not.
+     * 
+     * @return {@code true}, newly created sessions managed by this manager shall persist
+     *         authentication information; {@code false} otherwise
+     */
+    public boolean getPersistAuthentication() {
+        return this.persistAuthentication;
+    }
+
+    /**
+     * Set whether newly created sessions managed by this manager shall persist authentication
+     * information or not.
+     * 
+     * @param persistAuthentication if {@code true}, newly created sessions managed by this
+     *                              manager shall persist authentication information
+     */
+    public void setPersistAuthentication(boolean persistAuthentication) {
+        this.persistAuthentication = persistAuthentication;
+    }
+
     // --------------------------------------------------------- Public Methods
 
 
@@ -684,6 +714,12 @@ public abstract class ManagerBase extends LifecycleMBeanBase implements Manager 
             id = generateSessionId();
         }
         session.setId(id);
+
+        if (session instanceof StandardSession) {
+            // Set persistAuthentication only for StandardSession instances
+            ((StandardSession) session).setPersistAuthentication(persistAuthentication);
+        }
+
         sessionCounter++;
 
         SessionTiming timing = new SessionTiming(session.getCreationTime(), 0);

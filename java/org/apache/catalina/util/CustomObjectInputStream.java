@@ -38,6 +38,7 @@ import org.apache.tomcat.util.res.StringManager;
  *
  * @author Craig R. McClanahan
  * @author Bip Thelin
+ * @author Carsten Klein
  */
 public final class CustomObjectInputStream extends ObjectInputStream {
 
@@ -57,6 +58,8 @@ public final class CustomObjectInputStream extends ObjectInputStream {
     private final String allowedClassNameFilter;
     private final boolean warnOnFailure;
 
+    private boolean filterActive;
+
 
     /**
      * Construct a new instance of CustomObjectInputStream without any filtering
@@ -68,7 +71,7 @@ public final class CustomObjectInputStream extends ObjectInputStream {
      * @exception IOException if an input/output error occurs
      */
     public CustomObjectInputStream(InputStream stream, ClassLoader classLoader) throws IOException {
-        this(stream, classLoader, null, null, false);
+        this(stream, classLoader, null, null, false, false);
     }
 
 
@@ -86,11 +89,12 @@ public final class CustomObjectInputStream extends ObjectInputStream {
      *                                deserialization to be allowed if filtering
      *                                is enabled.
      * @param warnOnFailure Should any failures be logged?
+     * @param filterActive Should the class name filter be active initially?
      *
      * @exception IOException if an input/output error occurs
      */
     public CustomObjectInputStream(InputStream stream, ClassLoader classLoader,
-            Log log, Pattern allowedClassNamePattern, boolean warnOnFailure)
+            Log log, Pattern allowedClassNamePattern, boolean warnOnFailure, boolean filterActive)
             throws IOException {
         super(stream);
         if (log == null && allowedClassNamePattern != null && warnOnFailure) {
@@ -106,6 +110,7 @@ public final class CustomObjectInputStream extends ObjectInputStream {
             this.allowedClassNameFilter = allowedClassNamePattern.toString();
         }
         this.warnOnFailure = warnOnFailure;
+        this.filterActive = filterActive;
 
         Set<String> reportedClasses;
         synchronized (reportedClassCache) {
@@ -141,7 +146,7 @@ public final class CustomObjectInputStream extends ObjectInputStream {
         throws ClassNotFoundException, IOException {
 
         String name = classDesc.getName();
-        if (allowedClassNamePattern != null) {
+        if (filterActive && allowedClassNamePattern != null) {
             boolean allowed = allowedClassNamePattern.matcher(name).matches();
             if (!allowed) {
                 boolean doLog = warnOnFailure && reportedClasses.add(name);
@@ -191,5 +196,25 @@ public final class CustomObjectInputStream extends ObjectInputStream {
         } catch (IllegalArgumentException e) {
             throw new ClassNotFoundException(null, e);
         }
+    }
+
+    /**
+     * Return whether this CustomObjectInputStream's class name filter is active or not.
+     * 
+     * @return {@code true}, if this CustomObjectInputStream's class name filter is active;
+     *         {@code false} otherwise
+     */
+    public boolean isFilterActive() {
+        return filterActive;
+    }
+
+    /**
+     * Set whether this this CustomObjectInputStream's class name filter is active or not.
+     * 
+     * @param filterActive the new active state of this CustomObjectInputStream's class
+     *                     name filter
+     */
+    public void setFilterActive(boolean filterActive) {
+        this.filterActive = filterActive;
     }
 }

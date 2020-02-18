@@ -66,7 +66,7 @@
                  type="java.lang.String"/>
 
     <attribute   name="persistAuthentication"
-          description="Indicates whether sessions shall persist authentication information when being persisted (e.g. across restarts). Sessions get this attribute when being created, so changes to that attribute are applied to sessions created after such a change only."
+          description="Indicates whether sessions shall persist authentication information when being persisted (e.g. across application restarts)."
                  type="boolean"/>
 
     <attribute   name="processExpiresFrequency"
@@ -261,7 +261,7 @@
             writeable="false"/>
 
     <attribute   name="persistAuthentication"
-          description="Indicates whether sessions shall persist authentication information when being persisted (e.g. across restarts). Sessions get this attribute when being created, so changes to that attribute are applied to sessions created after such a change only."
+          description="Indicates whether sessions shall persist authentication information when being backed up to the store (e.g. across application restarts)."
                  type="boolean"/>
 
     <attribute   name="processExpiresFrequency"

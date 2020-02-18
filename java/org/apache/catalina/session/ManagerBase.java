@@ -58,7 +58,6 @@ import org.apache.tomcat.util.res.StringManager;
  * be subclassed to create more sophisticated Manager implementations.
  *
  * @author Craig R. McClanahan
- * @author Carsten Klein
  */
 public abstract class ManagerBase extends LifecycleMBeanBase implements Manager {
 
@@ -212,7 +211,8 @@ public abstract class ManagerBase extends LifecycleMBeanBase implements Manager 
             // Minimum set required for default distribution/persistence to work
             // plus String
             setSessionAttributeValueClassNameFilter(
-                    "java\\.lang\\.(?:Boolean|Integer|Long|Number|String)");
+                    "java\\.lang\\.(?:Boolean|Integer|Long|Number|String)"
+                    + "|org\\.apache\\.catalina\\.realm\\.GenericPrincipal\\.SerializablePrincipal");
             setWarnOnSessionAttributeFilterFailure(true);
         }
     }
@@ -714,12 +714,6 @@ public abstract class ManagerBase extends LifecycleMBeanBase implements Manager 
             id = generateSessionId();
         }
         session.setId(id);
-
-        if (session instanceof StandardSession) {
-            // Set persistAuthentication only for StandardSession instances
-            ((StandardSession) session).setPersistAuthentication(persistAuthentication);
-        }
-
         sessionCounter++;
 
         SessionTiming timing = new SessionTiming(session.getCreationTime(), 0);

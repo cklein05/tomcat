@@ -22,7 +22,6 @@ import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
-import java.io.OutputStream;
 import java.io.Serializable;
 import java.io.WriteAbortedException;
 import java.security.AccessController;
@@ -59,7 +58,6 @@ import org.apache.catalina.SessionEvent;
 import org.apache.catalina.SessionListener;
 import org.apache.catalina.TomcatPrincipal;
 import org.apache.catalina.security.SecurityUtil;
-import org.apache.catalina.util.CustomObjectInputStream;
 import org.apache.tomcat.util.ExceptionUtils;
 import org.apache.tomcat.util.res.StringManager;
 
@@ -81,7 +79,6 @@ import org.apache.tomcat.util.res.StringManager;
  * @author Craig R. McClanahan
  * @author Sean Legassick
  * @author <a href="mailto:jon@latchkey.com">Jon S. Stevens</a>
- * @author Carsten Klein
  */
 public class StandardSession implements HttpSession, Session, Serializable {
 
@@ -92,8 +89,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
     protected static final boolean ACTIVITY_CHECK;
 
     protected static final boolean LAST_ACCESS_AT_START;
-
-    protected static final boolean PRINCIPAL_SERIALIZABLE_CHECK;
 
     static {
         STRICT_SERVLET_COMPLIANCE = Globals.STRICT_SERVLET_COMPLIANCE;
@@ -112,14 +107,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
             LAST_ACCESS_AT_START = STRICT_SERVLET_COMPLIANCE;
         } else {
             LAST_ACCESS_AT_START = Boolean.parseBoolean(lastAccessAtStart);
-        }
-
-        String principalSerializableCheck = System.getProperty(
-                "org.apache.catalina.session.StandardSession.PRINCIPAL_SERIALIZABLE_CHECK");
-        if (principalSerializableCheck == null) {
-            PRINCIPAL_SERIALIZABLE_CHECK = true;
-        } else {
-            PRINCIPAL_SERIALIZABLE_CHECK = Boolean.parseBoolean(principalSerializableCheck);
         }
     }
 
@@ -283,11 +270,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
      */
     protected transient AtomicInteger accessCount = null;
 
-
-    /**
-     * Determines whether this session shall persist authentication information.
-     */
-    private transient boolean persistAuthentication = false;
 
     // ----------------------------------------------------- Session Properties
 
@@ -693,26 +675,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
         this.isValid = isValid;
     }
 
-    /**
-     * Return whether this session shall persist authentication information.
-     * 
-     * @return {@code true}, this session shall persist authentication information; {@code false}
-     *         otherwise
-     */
-    public boolean getPersistAuthentication() {
-        return this.persistAuthentication;
-    }
-
-    /**
-     * Set whether this session shall persist authentication information.
-     * 
-     * @param persistAuthentication if {@code true}, this session shall persist
-     *                              authentication information
-     */
-    public void setPersistAuthentication(boolean persistAuthentication) {
-        this.persistAuthentication = persistAuthentication;
-    }
-
 
     // ------------------------------------------------- Session Public Methods
 
@@ -1011,7 +973,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
         isNew = false;
         isValid = false;
         manager = null;
-        persistAuthentication = false;
 
     }
 
@@ -1588,12 +1549,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
     protected void doReadObject(ObjectInputStream stream)
         throws ClassNotFoundException, IOException {
 
-        // Test if we've got a CustomObjectInputStream; if so, disable filter
-        CustomObjectInputStream cois = null;
-        if (stream instanceof CustomObjectInputStream) {
-            cois = (CustomObjectInputStream) stream;
-        }
-
         // Deserialize the scalar instance variables (except Manager)
         authType = null;        // Transient only (may be set later)
         creationTime = ((Long) stream.readObject()).longValue();
@@ -1609,41 +1564,24 @@ public class StandardSession implements HttpSession, Session, Serializable {
             manager.getContext().getLogger().debug
                 ("readObject() loading session " + id);
 
-        // The next object read could either be the number of attributes (Integer) or a
-        // value indicating whether authentication information is present or not (Boolean)
+        // The next object read could either be the number of attributes (Integer) or the session's
+        // authType followed by a Principal object (not an Integer)
         Object nextObject = stream.readObject();
-        if (nextObject instanceof Boolean) {
-            String sessionAuthType = null;
-            Principal sessionPrincipal = null;
-            persistAuthentication = ((Boolean) nextObject).booleanValue();
-            if (persistAuthentication) {
-                sessionAuthType = (String) stream.readObject();
-                try {
-                    sessionPrincipal = (Principal) stream.readObject();
-                } catch (ClassNotFoundException | ObjectStreamException e) {
-                    String msg = sm.getString("standardSession.principalNotDeserializable", id);
-                    if (manager.getContext().getLogger().isDebugEnabled()) {
-                        manager.getContext().getLogger().debug(msg, e);
-                    } else {
-                        manager.getContext().getLogger().warn(msg);
-                    }
-                    throw e;
+        if (!(nextObject instanceof Integer)) {
+            setAuthType((String) nextObject);
+            try {
+                setPrincipal((Principal) stream.readObject());
+            } catch (ClassNotFoundException | ObjectStreamException e) {
+                String msg = sm.getString("standardSession.principalNotDeserializable", id);
+                if (manager.getContext().getLogger().isDebugEnabled()) {
+                    manager.getContext().getLogger().debug(msg, e);
+                } else {
+                    manager.getContext().getLogger().warn(msg);
                 }
-                if (sessionAuthType != null) {
-                    setAuthType(sessionAuthType);
-                }
-                if (sessionPrincipal != null) {
-                    setPrincipal(sessionPrincipal);
-                }
+                throw e;
             }
             // After that, the next object read should be the number of attributes (Integer)
             nextObject = stream.readObject();
-        }
-
-        // If we've got a CustomObjectInputStream, enable its filter now in order to read
-        // session attributes filtered
-        if (cois != null) {
-            cois.setFilterActive(true);
         }
 
         // Deserialize the attribute count and attribute values
@@ -1727,26 +1665,18 @@ public class StandardSession implements HttpSession, Session, Serializable {
             manager.getContext().getLogger().debug
                 ("writeObject() storing session " + id);
 
-        // Write authentication information if requested, session is authenticated AND
-        // if principal is serializable
-        Principal sessionPrincipal = getPrincipal();
-        if (persistAuthentication && isAuthenticated(sessionPrincipal)
-                && isPrincipalSerializable(sessionPrincipal)) {
-            // Boolean tag: authentication information has been serialized
-            stream.writeObject(Boolean.TRUE);
-            try {
-                stream.writeObject(getAuthType());
-                stream.writeObject(sessionPrincipal);
-            } catch (NotSerializableException e) {
-                manager.getContext().getLogger()
-                        .warn(sm.getString("standardSession.principalNotSerializable", id), e);
+        // Write authentication information (if configured)
+        String sessionAuthType = null;
+        Principal sessionPrincipal = null;
+        if (isPersistAuthentication()) {
+            sessionAuthType = getAuthType();
+            sessionPrincipal = getPrincipal();
+            if (!(sessionPrincipal instanceof Serializable)) {
+                sessionPrincipal = null;
             }
-        } else {
-            // Boolean tag: no authentication information has been serialized
-            // This flag is not really needed. The reading procedure works fine without it so, we
-            // could consider omitting it.
-            stream.writeObject(Boolean.FALSE);
         }
+        stream.writeObject(sessionAuthType);
+        stream.writeObject(sessionPrincipal);
 
         // Accumulate the names of serializable and non-serializable attributes
         String keys[] = keys();
@@ -1783,50 +1713,16 @@ public class StandardSession implements HttpSession, Session, Serializable {
     }
 
     /**
-     * Returns whether this session is authenticated.
+     * Return whether authentication information shall be persisted or not.
      * 
-     * @param principal the principal to use for the test
-     * 
-     * @return {@code true}, if this session is authenticated; {@code false} otherwise
+     * @return {@code true}, if authentication information shall be persisted;
+     *         {@code false} otherwise
      */
-    private boolean isAuthenticated(Principal principal) {
-        return getAuthType() != null || principal != null;
-    }
-
-    /**
-     * Returns whether the specified principal is serializable or not.
-     * 
-     * @param principal the principal to use for the test
-     * 
-     * @return {@code true}, if the specified principal is serializable; {@code false} otherwise
-     */
-    private boolean isPrincipalSerializable(Principal principal) {
-
-        if (!(principal instanceof Serializable)) {
-            // w/o Serializable interface, the Principal is not serializable
-            return false;
+    private boolean isPersistAuthentication() {
+        if (manager instanceof ManagerBase) {
+            return ((ManagerBase) manager).getPersistAuthentication();
         }
-
-        boolean result = true;
-
-        // If requested, check if the provided Principal serializes without exceptions.
-        // This uses a fast NullOutputStream.
-        if (PRINCIPAL_SERIALIZABLE_CHECK) {
-            try (NullOutputStream nos = new NullOutputStream();
-                    ObjectOutputStream oos = new ObjectOutputStream(nos)) {
-                oos.writeObject(principal);
-            } catch (NotSerializableException e) {
-                manager.getContext().getLogger()
-                        .warn(sm.getString("standardSession.principalNotSerializable", id), e);
-                result = false;
-            } catch (IOException e) {
-                // IOException not expected
-            }
-        }
-
-        // If the above (expensive) test was not performed, true is returned. In turn, the
-        // principal gets serialized which, of course, may fail.
-        return result;
+        return false;
     }
 
     /**
@@ -1984,33 +1880,6 @@ public class StandardSession implements HttpSession, Session, Serializable {
         public StandardSessionFacade run(){
             return new StandardSessionFacade(session);
         }
-    }
-
-    /**
-     * OutputStream implementation that just drops all bytes written.
-     */
-    private static class NullOutputStream extends OutputStream {
-
-        @Override
-        public void write(int b) throws IOException {
-        }
-
-        @Override
-        public void write(byte[] b) throws IOException {
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len) throws IOException {
-        }
-
-        @Override
-        public void flush() throws IOException {
-        }
-
-        @Override
-        public void close() throws IOException {
-        }
-
     }
 }
 

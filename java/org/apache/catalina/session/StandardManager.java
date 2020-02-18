@@ -208,8 +208,7 @@ public class StandardManager extends ManagerBase {
             synchronized (sessions) {
                 try (ObjectInputStream ois = new CustomObjectInputStream(bis, classLoader, logger,
                         getSessionAttributeValueClassNamePattern(),
-                        getWarnOnSessionAttributeFilterFailure(),
-                        false)) {
+                        getWarnOnSessionAttributeFilterFailure())) {
                     Integer count = (Integer) ois.readObject();
                     int n = count.intValue();
                     if (log.isDebugEnabled())

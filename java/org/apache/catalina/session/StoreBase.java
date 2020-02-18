@@ -224,8 +224,7 @@ public abstract class StoreBase extends LifecycleBase implements Store {
             ManagerBase managerBase = (ManagerBase) manager;
             ois = new CustomObjectInputStream(bis, classLoader, manager.getContext().getLogger(),
                     managerBase.getSessionAttributeValueClassNamePattern(),
-                    managerBase.getWarnOnSessionAttributeFilterFailure(),
-                    false);
+                    managerBase.getWarnOnSessionAttributeFilterFailure());
         } else {
             ois = new CustomObjectInputStream(bis, classLoader);
         }

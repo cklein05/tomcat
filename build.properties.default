@@ -27,12 +27,12 @@ version.major=10
 version.minor=1
 version.build=0
 version.patch=0
-version.suffix=-M1-dev
+version.suffix=-M2-dev
 
 # ----- Reproducible builds -----
 # Uncomment and set to current time for reproducible builds
-#2021-05-08T15:00:00Z
-#ant.tstamp.now=1620482400
+#2021-06-08T12:00:00Z
+#ant.tstamp.now=1623153600
 
 # ----- Source control flags -----
 git.branch=main
@@ -77,9 +77,11 @@ org.apache.tomcat.util.net.NioSelectorShared=true
 gpg.exec=/path/to/gpg
 
 # Code signing of Windows installer
+# See https://infra.apache.org/digicert-use.html for setup instructions
 do.codesigning=false
-codesigning.exec=signtool.exe
-codesigning.certificate.thumbprint=5a606116432aba614c246d15e792f9e4bcf19cbf
+codesigning.pkcs11properties=${user.home}/.digicertone/pkcs11properties.cfg
+codesigning.alias=Tomcat-PMC-key-2021-04
+codesigning.digest=SHA-512
 
 # ----- Settings to use when downloading files -----
 trydownload.httpusecaches=true
@@ -147,13 +149,13 @@ jdt.loc.1=http://archive.eclipse.org/eclipse/downloads/drops4/${jdt.release}/ecj
 jdt.loc.2=http://download.eclipse.org/eclipse/downloads/drops4/${jdt.release}/ecj-${jdt.version}.jar
 
 # ----- Tomcat native library -----
-tomcat-native.version=1.2.28
+tomcat-native.version=1.2.30
 tomcat-native.src.checksum.enabled=true
 tomcat-native.src.checksum.algorithm=SHA-512
-tomcat-native.src.checksum.value=16b8659dcd228ea153d05c9ae19e3d97add944315f3b8b42905162d0e4e8a28fd51a172d59d7da8508271ecad0b8ac025a386895565acaf8e2ba11fba77492bb
+tomcat-native.src.checksum.value=51a8c55214de166cace193c3330abe77cabea56c2d05efc8c3408bc06369c328899376c94c572725ebe2887f2faf99fea05d1819fa84c712d57fd309d0476953
 tomcat-native.win.checksum.enabled=true
 tomcat-native.win.checksum.algorithm=SHA-512
-tomcat-native.win.checksum.value=a0a7c05ca1b2b873456e2331232f9752b52af23a205e61d14905e0779f4c517563438b45fc36b1a81803f67d47b39e77009e4a4e892a3fd0e548398ed9a69dc3
+tomcat-native.win.checksum.value=ce84edcec3b5a89b0c30951bb8832695a657e7558bceece8e92551644773d0f763369951d9d043dbf52653f4e37238d8d53555ae58cc0017bf777b447d00f603
 tomcat-native.home=${base.path}/tomcat-native-${tomcat-native.version}
 tomcat-native.tar.gz=${tomcat-native.home}/tomcat-native.tar.gz
 tomcat-native.loc.1=${base-tomcat.loc.1}/tomcat-connectors/native/${tomcat-native.version}/source/tomcat-native-${tomcat-native.version}-src.tar.gz
@@ -323,3 +325,15 @@ migration-lib.checksum.value=cecc0fa3b5947dd52465ed395ba3f23f|19a3e36dec08bbc60a
 migration-lib.home=${base.path}/migration-${migration-lib.version}
 migration-lib.jar=${migration-lib.home}/jakartaee-migration-${migration-lib.version}-shaded.jar
 migration-lib.loc=${base-maven.loc}/org/apache/tomcat/jakartaee-migration/${migration-lib.version}/jakartaee-migration-${migration-lib.version}-shaded.jar
+
+# ----- JSign, version 3.1 or later -----
+jsign.version=3.1
+
+# checksums for JSign 3.1
+jsign.checksum.enable=true
+jsign.checksum.algorithm=MD5|SHA-1
+jsign.checksum.value=ed924fc86b7abe1dfe22fd8fd7e4c417|5736035f64805b2760a41ebc1ff11523f666f2c7
+
+jsign.home=${base.path}/jsign-${jsign.version}
+jsign.jar=${jsign.home}/jsign-${jsign.version}.jar
+jsign.loc=${base-maven.loc}/net/jsign/jsign/${jsign.version}/jsign-${jsign.version}.jar

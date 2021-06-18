@@ -104,11 +104,122 @@
   They eventually become mixed with the numbered issues (i.e., numbered
   issues do not "pop up" wrt. others).
 -->
-<section name="Tomcat 10.1.0-M1 (markt)" rtext="in development">
+<section name="Tomcat 10.1.0-M2 (markt)" rtext="in development">
+  <subsection name="Catalina">
+    <changelog>
+      <scode>
+        Refactor the <code>RemoteIpValve</code> to use the common utility method
+        for list to comma separated string conversion. (markt)
+      </scode>
+    </changelog>
+  </subsection>
+  <subsection name="Coyote">
+    <changelog>
+      <fix>
+        <bug>65368</bug>: Improve handling of clean closes of inbound TLS
+        connections. Treat them the same way as clean closes of non-TLS
+        connections rather than as unknown errors. (markt)
+      </fix>
+      <fix>
+        Modify the HTTP/2 connector not to sent small updates for stream flow
+        control windows to the user agent as, depending on how the user agent is
+        written, this may trigger small writes from the user agent that in turn
+        trigger the overhead protection. Small updates for stream flow control
+        windows are now combined with subsequent flow control window updates for
+        that stream to ensure that all stream flow control window updates sent
+        from Tomcat are larger than <code>overheadWindowUpdateThreshold</code>.
+        (markt)
+      </fix>
+      <add>
+        Add additional debug logging to track the current state of the HTTP/2
+        overhead count that Tomcat uses to detect and close potentially
+        malicious connections. (markt)
+      </add>
+      <update>
+        Many HTTP/2 requests from browsers will trigger one overhead frame and
+        one non-overhead frame. Change the overhead calculation so that a
+        non-overhead frame reduces the current overhead count by 2 rather than
+        1. This means that, over time, the overhead count for a well-behaved
+        connection will trend downwards. (markt)
+      </update>
+      <update>
+        Change the initial HTTP/2 overhead count from <code>-10</code> to
+        <code>-10 * overheadCountFactor</code>. This means that, regardless of
+        the value chosen for <code>overheadCountFactor</code>, when a connection
+        opens 10 overhead frames in a row will be required to trigger the
+        overhead protection. (markt)
+      </update>
+      <update>
+        Increase the default <code>overheadCountFactor</code> from
+        <code>1</code> to <code>10</code> and change the reduction in overhead
+        count for a non-overhead frame from <code>-2</code> to <code>-20</code>.
+        This allows for a larger range (0-20) to be used for
+        <code>overheadCountFactor</code> providing for finer-grained control.
+        (markt)
+      </update>
+      <fix>
+        Modify the parsing of HTTP header values that use the
+        <code>1#token</code> to ignore empty elements as per RFC 7230 section 7
+        instead of treating the presence of empty elements as an error. (markt)
+      </fix>
+      <fix>
+        Expand the unit tests for <code>HttpServlet.doHead()</code> and correct
+        the flushing of the response buffer. The buffer used to behave as if it
+        was one byte smaller than the configured size. The buffer was flushed
+        (and the response committed if required) when the buffer was full. The
+        buffer is now flushed (and the response committed if required) if the
+        buffer is full and there is more data to write. (markt)
+      </fix>
+      <fix>
+        Fix an issue where concurrent HTTP/2 writes (or concurrent reads) to the
+        same connection could hang and eventually timeout when async IO was
+        enabled (it is enabled by default). (markt)
+      </fix>
+    </changelog>
+  </subsection>
+  <subsection name="Jasper">
+    <changelog>
+      <fix>
+        <bug>65387</bug>: Correct a regression in the fix for <bug>65124</bug>
+        and restore the local definition of <code>out</code> for tags that
+        implement <code>TryCatchFinally</code>. (markt)
+      </fix>
+    </changelog>
+  </subsection>
+  <subsection name="Web applications">
+    <changelog>
+      <fix>
+        <bug>65385</bug>: Correct the link in the documentation web application
+        the Maven Central repository. (markt)
+      </fix>
+    </changelog>
+  </subsection>
+  <subsection name="Other">
+    <changelog>
+      <add>
+        Use JSign to integrate the build script with the code signing service to
+        enable release builds to be created on Linux as well as Windows. (markt)
+      </add>
+      <update>
+        Update the OWB module to Apache OpenWebBeans 2.0.23. (remm)
+      </update>
+      <update>
+        Update the CXF module to Apache CXF 3.4.4. (remm)
+      </update>
+      <fix>
+        <bug>65369</bug> / <pr>422</pr>: Add the additional
+        <code>--add-opens=...</code> options required for running Tomcat on Java
+        16 onwards to the <code>service.bat</code> script to align it with the
+        other start-up scripts. PR provided by MCMicS. (markt)
+      </fix>
+    </changelog>
+  </subsection>
+</section>
+<section name="Tomcat 10.1.0-M1 (markt)" rtext="2021-06-15">
   <subsection name="General">
     <changelog>
       <scode>
-        This release contains all of the changes upto and including those in
+        This release contains all of the changes up to and including those in
         Apache Tomcat 10.0.6 plus the additional changes listed below. (markt)
       </scode>
       <scode>
@@ -164,6 +275,27 @@
         Refactor principal handling in <code>UserDatabaseRealm</code> using
         an inner class that extends <code>GenericPrincipal</code>. (remm)
       </update>
+      <fix>
+        Enable the default <code>doHead()</code> implementation in
+        <code>HttpServlet</code> to correctly handle responses where the content
+        length needs to be represented as a long since it is larger than the
+        maximum value that can be represented by an int. (markt)
+      </fix>
+      <fix>
+        Avoid synchronization on roles verification for the memory
+        <code>UserDatabase</code>. (remm)
+      </fix>
+      <fix>
+        Fix the default <code>doHead()</code> implementation in
+        <code>HttpServlet</code> to correctly handle responses where the Servlet
+        calls <code>ServletResponse.reset()</code> and/or
+        <code>ServletResponse.resetBuffer()</code>. (markt)
+      </fix>
+      <fix>
+        Fix the default <code>doHead()</code> implementation in
+        <code>HttpServlet</code> to correctly handle responses generated using
+        the Servlet non-blocking API. (markt)
+      </fix>
     </changelog>
   </subsection>
   <subsection name="Coyote">
@@ -182,6 +314,30 @@
         which could cause a <code>NegativeArraySizeException</code> exception.
         Submitted by Thomas, and verified the fix is present in the donated
         hpack code in a further update. (remm)
+      </fix>
+      <add>
+        Add debug logging for HTTP/2 HPACK header decoding. (markt)
+      </add>
+      <fix>
+        Correct parsing of HTTP headers consisting of a list of tokens so that a
+        header with an empty token is treated consistently regardless of whether
+        the empty token is at the start, middle or end of the list of tokens.
+        (markt)
+      </fix>
+      <fix>
+        Remove support for the <code>identity</code> transfer encoding. The
+        inclusion of this encoding in RFC 2616 was an error that was corrected
+        in 2001. Requests using this transfer encoding will now receive a 501
+        response. (markt)
+      </fix>
+      <fix>
+        Process transfer encoding headers from both HTTP 1.0 and HTTP 1.1
+        clients. (markt)
+      </fix>
+      <fix>
+        Ensure that if the transfer encoding header contains the
+        <code>chunked</code>, that the <code>chunked</code> encoding is the
+        final encoding listed. (markt)
       </fix>
     </changelog>
   </subsection>
@@ -223,6 +379,19 @@
         <code>MethodExpression.getParmetersProvided()</code> from the EL API to
         align with the current EL 5.0 development branch. (markt)
       </scode>
+      <fix>
+        <bug>65358</bug>: Improve expression language method matching for
+        methods with varargs. Where multiple methods may match the provided
+        parameters, the method that requires the fewest varargs is preferred.
+        (markt)
+      </fix>
+      <add>
+        <bug>65332</bug>: Add a commented out section in
+        <code>catalina.policy</code> that provides the necessary permissions to
+        compile JSPs with javac when running on Java 9 onwards with a security
+        manager. It is commented out as it will cause errors if used with
+        earlier Java versions. (markt)
+      </add>
     </changelog>
   </subsection>
   <subsection name="WebSocket">
@@ -235,7 +404,7 @@
       </fix>
       <update>
         Update the <code>web-fragment.xml</code> included in
-        <code>tomcat-websocket.jar</code>to use the Servlet 5.0 schema. (markt)
+        <code>tomcat-websocket.jar</code> to use the Servlet 5.0 schema. (markt)
       </update>
       <fix>
         <bug>65342</bug>: Correct a regression introduced with the fix for
@@ -261,6 +430,16 @@
       <add>
         Improvements to Korean translations. (woonsan)
       </add>
+      <fix>
+        <bug>65362</bug>: Correct a regression in the previous release. The
+        change to create OSGi <code>Require-Capability</code> sections in
+        manifests for Jakarta API JARs manually rather than with bnd annotations
+        did not add the necessary manual entries to the embedded JARs. (markt)
+      </fix>
+      <update>
+        Update the packaged version of the Tomcat Native Library to 1.2.30. Also
+        update the minimum recommended version to 1.2.30. (markt)
+      </update>
     </changelog>
   </subsection>
 </section>

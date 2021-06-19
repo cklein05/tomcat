@@ -1860,7 +1860,7 @@ class Generator {
                     out.printil("jakarta.servlet.jsp.PageContext pageContext = _jspx_page_context;");
                 }
                 // Only need to define out if the tag has a non-empty body,
-                // implements TryCtachFinally or uses
+                // implements TryCatchFinally or uses
                 // <jsp:attribute>...</jsp:attribute> nodes
                 if (!n.hasEmptyBody() || n.implementsTryCatchFinally() || n.getNamedAttributeNodes().size() > 0) {
                     out.printil("jakarta.servlet.jsp.JspWriter out = _jspx_page_context.getOut();");
@@ -3322,6 +3322,10 @@ class Generator {
             boolean tmpIsFragment = isFragment;
             isFragment = true;
             String pushBodyCountVarSave = pushBodyCountVar;
+            if (pushBodyCountVar != null) {
+                // Use a fixed name for push body count, to simplify code gen
+                pushBodyCountVar = "_jspx_push_body_count";
+            }
             visitBody(n);
             out = outSave;
             parent = tmpParent;
